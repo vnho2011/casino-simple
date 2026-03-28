@@ -1,0 +1,116 @@
+const express = require("express");
+const app = express();
+const http = require("http").createServer(app);
+const io = require("socket.io")(http);
+
+app.get("/", (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CASINO VIP 🎰</title>
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+body { background:#0a0a0a; color:white; text-align:center; font-family:Arial }
+button { padding:10px; margin:5px; cursor:pointer }
+.tai { background:red; color:white }
+.xiu { background:blue; color:white }
+.box { margin-top:10px }
+#chat { height:200px; overflow:auto; border:1px solid #444; margin:10px }
+</style>
+</head>
+
+<body>
+
+<h1>🎰 CASINO ALL-IN-ONE</h1>
+
+<h2 id="time">10</h2>
+<h2 id="dice">🎲 🎲 🎲</h2>
+<h2 id="result"></h2>
+
+<input id="money" placeholder="Nhập tiền (demo)">
+
+<div class="box">
+<button class="tai" onclick="bet('tai')">TÀI</button>
+<button class="xiu" onclick="bet('xiu')">XỈU</button>
+</div>
+
+<h3>💬 CHAT VIP</h3>
+<div id="chat"></div>
+
+<input id="msg">
+<button onclick="send()">Gửi</button>
+
+<script>
+const socket = io();
+
+socket.on("time", t=>{
+ document.getElementById("time").innerText = t;
+});
+
+socket.on("roll", data=>{
+ document.getElementById("dice").innerText =
+ `🎲 ${data.d1}-${data.d2}-${data.d3}`;
+
+ document.getElementById("result").innerText =
+ "KẾT QUẢ: " + data.result.toUpperCase();
+});
+
+socket.on("chat", msg=>{
+ document.getElementById("chat").innerHTML += "<div>"+msg+"</div>";
+});
+
+function bet(type){
+ let m = document.getElementById("money").value;
+ socket.emit("bet", {type, m});
+}
+
+function send(){
+ let msg = document.getElementById("msg").value;
+ socket.emit("chat", msg);
+}
+</script>
+
+</body>
+</html>`);
+});
+
+let time = 10;
+
+function roll(){
+ return Math.floor(Math.random()*6)+1;
+}
+
+setInterval(()=>{
+ time--;
+ io.emit("time", time);
+
+ if(time <= 0){
+  let d1 = roll();
+  let d2 = roll();
+  let d3 = roll();
+
+  let total = d1 + d2 + d3;
+  let result = total >= 11 ? "tai" : "xiu";
+
+  io.emit("roll", {d1,d2,d3,total,result});
+
+  time = 10;
+ }
+},1000);
+
+io.on("connection", (socket)=>{
+
+ socket.on("chat", (msg)=>{
+  io.emit("chat", "💬 " + msg);
+ });
+
+ socket.on("bet", (data)=>{
+  console.log("BET:", data);
+ });
+
+});
+
+const PORT = process.env.PORT || 3000;
+http.listen(PORT, ()=> console.log("RUNNING " + PORT));
